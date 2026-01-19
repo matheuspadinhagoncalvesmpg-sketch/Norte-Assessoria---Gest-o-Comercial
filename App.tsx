@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   LayoutDashboard, 
@@ -105,6 +104,10 @@ const App: React.FC = () => {
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [reportPeriod, setReportPeriod] = useState<'Diário' | 'Semanal' | 'Mensal' | null>(null);
 
+  // Commercial Insight State
+  const [commercialInsight, setCommercialInsight] = useState<CommercialInsight | null>(null);
+  const [isGeneratingInsight, setIsGeneratingInsight] = useState(false);
+
   // Profile State
   const [profile, setProfile] = useState<UserProfile>({
     name: 'Administrador Norte',
@@ -205,6 +208,20 @@ const App: React.FC = () => {
       setSalesReport("Falha ao gerar o relatório.");
     } finally {
       setIsGeneratingReport(false);
+    }
+  };
+
+  const handleGenerateInsight = async () => {
+    if (metrics.length === 0) return;
+    setIsGeneratingInsight(true);
+    try {
+      const recentMetrics = metrics.slice(0, 14); // Analyze last 14 entries for recent context
+      const result = await getCommercialInsights(recentMetrics);
+      setCommercialInsight(result);
+    } catch (error) {
+      console.error("Failed to generate insight", error);
+    } finally {
+      setIsGeneratingInsight(false);
     }
   };
 
@@ -550,20 +567,86 @@ const App: React.FC = () => {
                 </section>
              </div>
 
-             {/* BOTÃO DE DECISÃO RÁPIDA (IA) */}
-             <div className="bg-zinc-950 border border-zinc-800 p-10 rounded-[3rem] flex flex-col md:flex-row items-center justify-between gap-8 group hover:border-red-600 transition-all">
-                <div className="flex items-center gap-6 text-center md:text-left">
-                   <div className="h-16 w-16 rounded-full bg-red-600 flex items-center justify-center text-white shadow-xl shadow-red-950/40">
-                      <BrainCircuit size={32} />
-                   </div>
-                   <div>
-                      <h4 className="text-xl font-black text-white uppercase tracking-tight">Análise Estratégica IA</h4>
-                      <p className="text-slate-500 text-xs font-medium">O Norte AI processou os dados. Você tem 3 oportunidades de crescimento hoje.</p>
-                   </div>
-                </div>
-                <button onClick={() => setActiveTab('sugestoes')} className="px-10 py-5 bg-white text-black font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-red-600 hover:text-white transition-all flex items-center gap-3">
-                   <Sparkles size={16} /> Consultar Inteligência
-                </button>
+             {/* BOTÃO DE DECISÃO RÁPIDA (IA) - INTEGRATED */}
+             <div className="bg-zinc-950 border border-zinc-800 p-10 rounded-[3rem] group hover:border-red-600 transition-all relative overflow-hidden">
+                {!commercialInsight && !isGeneratingInsight && (
+                  <div className="flex flex-col md:flex-row items-center justify-between gap-8 relative z-10">
+                    <div className="flex items-center gap-6 text-center md:text-left">
+                       <div className="h-16 w-16 rounded-full bg-red-600 flex items-center justify-center text-white shadow-xl shadow-red-950/40">
+                          <BrainCircuit size={32} />
+                       </div>
+                       <div>
+                          <h4 className="text-xl font-black text-white uppercase tracking-tight">Análise Estratégica IA</h4>
+                          <p className="text-slate-500 text-xs font-medium">
+                             {metrics.length > 0 
+                               ? "O Norte AI está pronto para processar seus dados comerciais." 
+                               : "Insira dados de métricas para habilitar a inteligência artificial."}
+                          </p>
+                       </div>
+                    </div>
+                    <button 
+                      onClick={handleGenerateInsight} 
+                      disabled={metrics.length === 0}
+                      className="px-10 py-5 bg-white text-black font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-red-600 hover:text-white transition-all flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                       <Sparkles size={16} /> {metrics.length > 0 ? "Gerar Relatório Estratégico" : "Sem Dados"}
+                    </button>
+                  </div>
+                )}
+
+                {isGeneratingInsight && (
+                  <div className="flex flex-col items-center justify-center py-8 relative z-10">
+                     <Loader2 size={40} className="text-red-500 animate-spin mb-4" />
+                     <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] animate-pulse">Processando Inteligência de Mercado...</p>
+                  </div>
+                )}
+
+                {commercialInsight && (
+                  <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 relative z-10">
+                     <div className="flex justify-between items-start mb-6 border-b border-zinc-800 pb-6">
+                        <div className="flex items-center gap-4">
+                           <div className="p-3 bg-red-600/10 rounded-xl text-red-500">
+                              <BrainCircuit size={24} />
+                           </div>
+                           <div>
+                              <h4 className="text-lg font-black text-white uppercase tracking-tight">Relatório de Inteligência Norte</h4>
+                              <div className="flex items-center gap-2 mt-1">
+                                 <div className={`h-2 w-2 rounded-full ${commercialInsight.status === 'positive' ? 'bg-emerald-500' : commercialInsight.status === 'negative' ? 'bg-red-500' : 'bg-amber-500'}`} />
+                                 <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{commercialInsight.status === 'positive' ? 'Cenário Positivo' : commercialInsight.status === 'negative' ? 'Atenção Crítica' : 'Estável'}</span>
+                              </div>
+                           </div>
+                        </div>
+                        <button onClick={() => setCommercialInsight(null)} className="p-2 hover:bg-zinc-800 rounded-full text-slate-500 hover:text-white transition-colors">
+                           <X size={20} />
+                        </button>
+                     </div>
+                     
+                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div className="lg:col-span-2">
+                           <p className="text-slate-300 text-sm leading-relaxed font-medium mb-6">
+                              {commercialInsight.analysis}
+                           </p>
+                           <div className="flex gap-4">
+                               <button className="px-6 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-[9px] font-black uppercase text-slate-400 hover:text-white hover:border-red-600 transition-all">Exportar PDF</button>
+                               <button onClick={() => setActiveTab('sugestoes')} className="px-6 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-[9px] font-black uppercase text-slate-400 hover:text-white hover:border-emerald-500 transition-all">Discutir com IA</button>
+                           </div>
+                        </div>
+                        <div className="bg-zinc-900/50 p-6 rounded-2xl border border-zinc-800">
+                           <h5 className="text-[9px] font-black text-red-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                              <Target size={14} /> Ações Recomendadas
+                           </h5>
+                           <ul className="space-y-4">
+                              {commercialInsight.suggestions.map((s, i) => (
+                                 <li key={i} className="flex gap-3 text-xs text-slate-400 font-medium">
+                                    <span className="text-red-600 font-bold">•</span>
+                                    {s}
+                                 </li>
+                              ))}
+                           </ul>
+                        </div>
+                     </div>
+                  </div>
+                )}
              </div>
 
           </div>
