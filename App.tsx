@@ -192,7 +192,8 @@ const App: React.FC = () => {
       const botText = response.text || 'Desculpe, tive um problema ao processar sua dúvida.';
       setAiChatMessages(prev => [...prev, { role: 'bot', text: botText }]);
     } catch (err) {
-      setAiChatMessages(prev => [...prev, { role: 'bot', text: 'Sistema temporariamente offline.' }]);
+      setAiChatMessages(prev => [...prev, { role: 'bot', text: 'Sistema temporariamente offline ou Chave de API inválida.' }]);
+      console.error(err);
     } finally {
       setIsAiThinking(false);
     }

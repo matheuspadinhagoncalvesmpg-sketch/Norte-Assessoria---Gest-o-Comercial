@@ -1,9 +1,10 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { DailyMetric, MeetingRecording } from "../types";
 
 // Função para obter a instância da AI com a chave mais recente
-const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
+const getAI = () => {
+  return new GoogleGenAI({ apiKey: process.env.API_KEY });
+};
 
 export const getCommercialInsights = async (data: DailyMetric[]) => {
   const ai = getAI();
@@ -33,7 +34,7 @@ export const getCommercialInsights = async (data: DailyMetric[]) => {
       }
     });
 
-    return JSON.parse(response.text.trim());
+    return JSON.parse(response.text?.trim() || "{}");
   } catch (error) {
     console.error("Error fetching insights:", error);
     throw error;
@@ -80,7 +81,7 @@ export const analyzeMeetingRecording = async (base64Data: string, closerName: st
       }
     });
 
-    return JSON.parse(response.text.trim());
+    return JSON.parse(response.text?.trim() || "{}");
   } catch (error) {
     console.error("Error analyzing recording:", error);
     throw error;
