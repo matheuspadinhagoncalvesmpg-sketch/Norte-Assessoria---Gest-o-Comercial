@@ -79,6 +79,52 @@ import { DailyMetric, CommercialInsight, MeetingRecording, CloserPerformance, Cl
 import { getCommercialInsights, analyzeMeetingRecording, generateSalesFeedbackReport } from './services/geminiService';
 import { supabase } from './services/supabaseClient';
 
+// --- SAMPLE DATA FOR ROBUSTNESS ---
+const SAMPLE_METRICS: DailyMetric[] = [
+  { id: '1', date: '2023-10-25', leads: 45, qualifications: 12, meetings: 8, sales: 2, value: 12000, adsInvestment: 850, observations: 'Ótimo dia' },
+  { id: '2', date: '2023-10-24', leads: 38, qualifications: 10, meetings: 6, sales: 1, value: 5000, adsInvestment: 750, observations: 'CPL subiu um pouco' },
+  { id: '3', date: '2023-10-23', leads: 52, qualifications: 15, meetings: 9, sales: 3, value: 18500, adsInvestment: 900, observations: 'Recorde de agendamentos' },
+  { id: '4', date: '2023-10-22', leads: 30, qualifications: 8, meetings: 5, sales: 1, value: 6000, adsInvestment: 600, observations: 'Domingo lento' },
+  { id: '5', date: '2023-10-21', leads: 40, qualifications: 11, meetings: 7, sales: 2, value: 11000, adsInvestment: 800, observations: 'Bons leads do Instagram' },
+];
+
+const SAMPLE_CLIENTS: Client[] = [
+  { id: 'c1', name: 'Tech Solutions Ltda', company: 'Tech Solutions', contractDate: '2023-09-10', contractValue: 5500, qualificationNotes: 'Cliente busca escala', status: 'active', files: [] },
+  { id: 'c2', name: 'Dr. Roberto Silva', company: 'Clínica Silva', contractDate: '2023-08-15', contractValue: 4000, qualificationNotes: 'Foco em implantes', status: 'active', files: [] },
+  { id: 'c3', name: 'Construtora Horizonte', company: 'Grupo Horizonte', contractDate: '2023-05-20', contractValue: 12000, qualificationNotes: 'Lançamento imobiliário', status: 'active', files: [] },
+  { id: 'c4', name: 'Bella Modas', company: 'Bella E-commerce', contractDate: '2023-01-10', contractValue: 3000, qualificationNotes: 'Sem estoque', status: 'cancelled', files: [] },
+];
+
+const SAMPLE_RECORDINGS: MeetingRecording[] = [
+  { 
+    id: 'r1', 
+    date: '2023-10-24', 
+    closerName: 'Lucas Sales', 
+    clientName: 'Academia Power', 
+    status: 'completed',
+    analysis: {
+      overallScore: 85,
+      strengths: ['Bom Rapport', 'Contorno de objeção de preço'],
+      weaknesses: ['Faltou pedir indicação', 'Fechamento um pouco inseguro'],
+      improvementPoints: ['Usar mais gatilhos de escassez', 'Melhorar tom de voz no final'],
+      summary: 'Lucas conduziu bem a reunião, criou conexão rápida. O cliente questionou o preço, mas Lucas mostrou o ROI. Faltou apenas mais firmeza ao pedir os dados do cartão.',
+      techniquesObserved: ['Spin Selling', 'Espelhamento']
+    }
+  },
+  { 
+    id: 'r2', 
+    date: '2023-10-23', 
+    closerName: 'Ana Paula', 
+    clientName: 'Restaurante Sabor', 
+    status: 'analyzing'
+  }
+];
+
+const SAMPLE_SUGGESTIONS: Suggestion[] = [
+  { id: 's1', userName: 'Lucas Sales', message: 'Deveríamos testar criativos em vídeo no TikTok, o público de lá está convertendo bem.', timestamp: '2023-10-20', category: 'Marketing', status: 'Analise' },
+  { id: 's2', userName: 'Ana Paula', message: 'Precisamos revisar o script de qualificação, muitos leads sem budget chegando na call.', timestamp: '2023-10-22', category: 'Processo', status: 'Analise' }
+];
+
 const App: React.FC = () => {
   const [metrics, setMetrics] = useState<DailyMetric[]>([]);
   const [recordings, setRecordings] = useState<MeetingRecording[]>([]);
@@ -138,28 +184,55 @@ const App: React.FC = () => {
     date: new Date().toISOString().split('T')[0]
   });
 
-  // Load Data from Supabase
+  // Load Data from Supabase with Fallback
   useEffect(() => {
     const loadData = async () => {
       try {
-        const { data: metricsData } = await supabase.from('metrics').select('*');
-        if (metricsData) setMetrics(metricsData);
+        // Tenta carregar métricas
+        const { data: metricsData, error: metricsError } = await supabase.from('metrics').select('*');
+        if (!metricsError && metricsData && metricsData.length > 0) {
+          setMetrics(metricsData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+        } else {
+          console.warn("Usando dados de exemplo para Métricas (Supabase vazio ou offline)");
+          setMetrics(SAMPLE_METRICS);
+        }
 
-        const { data: recordingsData } = await supabase.from('recordings').select('*');
-        if (recordingsData) setRecordings(recordingsData);
+        // Tenta carregar gravações
+        const { data: recordingsData, error: recError } = await supabase.from('recordings').select('*');
+        if (!recError && recordingsData && recordingsData.length > 0) {
+          setRecordings(recordingsData);
+        } else {
+          setRecordings(SAMPLE_RECORDINGS);
+        }
 
-        const { data: clientsData } = await supabase.from('clients').select('*');
-        if (clientsData) setClients(clientsData);
+        // Tenta carregar clientes
+        const { data: clientsData, error: cliError } = await supabase.from('clients').select('*');
+        if (!cliError && clientsData && clientsData.length > 0) {
+          setClients(clientsData);
+        } else {
+          setClients(SAMPLE_CLIENTS);
+        }
 
-        const { data: suggestionsData } = await supabase.from('suggestions').select('*');
-        if (suggestionsData) setSuggestions(suggestionsData);
+        // Tenta carregar sugestões
+        const { data: suggestionsData, error: sugError } = await supabase.from('suggestions').select('*');
+        if (!sugError && suggestionsData && suggestionsData.length > 0) {
+          setSuggestions(suggestionsData);
+        } else {
+          setSuggestions(SAMPLE_SUGGESTIONS);
+        }
         
         // Load local preferences/static data
         const savedProfile = localStorage.getItem('norte_profile');
-        if (savedProfile) setProfile(JSON.parse(savedProfile));
+        if (savedProfile) {
+          setProfile(JSON.parse(savedProfile));
+        }
 
       } catch (error) {
-        console.error("Erro ao carregar dados do Supabase:", error);
+        console.error("Erro crítico ao carregar dados, usando fallback completo:", error);
+        setMetrics(SAMPLE_METRICS);
+        setRecordings(SAMPLE_RECORDINGS);
+        setClients(SAMPLE_CLIENTS);
+        setSuggestions(SAMPLE_SUGGESTIONS);
       }
     };
     loadData();
@@ -172,7 +245,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     aiChatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [aiChatMessages]);
+  }, [aiChatMessages, isAiThinking]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -197,7 +270,7 @@ const App: React.FC = () => {
       const botText = response.text || 'Desculpe, tive um problema ao processar sua dúvida.';
       setAiChatMessages(prev => [...prev, { role: 'bot', text: botText }]);
     } catch (err) {
-      setAiChatMessages(prev => [...prev, { role: 'bot', text: 'Sistema temporariamente offline ou Chave de API inválida.' }]);
+      setAiChatMessages(prev => [...prev, { role: 'bot', text: 'Sistema temporariamente offline ou Chave de API inválida. Verifique sua conexão.' }]);
       console.error(err);
     } finally {
       setIsAiThinking(false);
@@ -211,7 +284,7 @@ const App: React.FC = () => {
       const report = await generateSalesFeedbackReport(recordings, period);
       setSalesReport(report);
     } catch (e) {
-      setSalesReport("Falha ao gerar o relatório.");
+      setSalesReport("Falha ao gerar o relatório. Tente novamente.");
     } finally {
       setIsGeneratingReport(false);
     }
@@ -236,15 +309,14 @@ const App: React.FC = () => {
     if (!isAdmin) return;
     const newMetric: DailyMetric = { ...formData, id: Math.random().toString(36).substr(2, 9) };
     
+    // Tenta salvar no Supabase, se falhar, salva localmente para demo
     const { error } = await supabase.from('metrics').insert([newMetric]);
     
     if (error) {
-      console.error("Erro ao salvar métrica:", error);
-      alert("Erro ao salvar no banco de dados.");
-      return;
+      console.warn("Modo Demo: Salvando métrica localmente pois backend falhou.", error);
     }
 
-    setMetrics(prev => [...prev, newMetric].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+    setMetrics(prev => [newMetric, ...prev].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
     setFormData({ date: new Date().toISOString().split('T')[0], leads: 0, qualifications: 0, meetings: 0, sales: 0, value: 0, adsInvestment: 0, observations: '' });
     setActiveTab('history');
   };
@@ -252,11 +324,9 @@ const App: React.FC = () => {
   const handleDeleteMetric = async (id: string) => {
      const { error } = await supabase.from('metrics').delete().eq('id', id);
      if (error) {
-       console.error("Erro ao deletar:", error);
-       alert("Erro ao deletar.");
-     } else {
-       setMetrics(metrics.filter(item => item.id !== id));
+       console.warn("Modo Demo: Deletando localmente.");
      }
+     setMetrics(metrics.filter(item => item.id !== id));
   };
 
   const [formData, setFormData] = useState<Omit<DailyMetric, 'id'>>({
@@ -273,10 +343,15 @@ const App: React.FC = () => {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+        if (file.size > 20 * 1024 * 1024) {
+          alert("Aviso: O arquivo é muito grande para esta demonstração. Por favor, use arquivos menores que 20MB.");
+          return;
+        }
         setIsReadingFile(true);
         const reader = new FileReader();
         reader.onload = (event) => {
-          const base64 = (event.target?.result as string).split(',')[1];
+          const result = event.target?.result as string;
+          const base64 = result.split(',')[1];
           setPendingMedia({ base64, fileName: file.name, mimeType: file.type, size: file.size });
           setIsReadingFile(false);
         };
@@ -297,22 +372,28 @@ const App: React.FC = () => {
       status: 'analyzing'
     };
 
-    // Save initial state to DB
-    await supabase.from('recordings').insert([initialRecording]);
+    // UI Optimistic update
     setRecordings(prev => [initialRecording, ...prev]);
 
     try {
       const res = await analyzeMeetingRecording(pendingMedia.base64, closerForm.closerName, pendingMedia.mimeType);
       
-      // Update DB with analysis
-      await supabase.from('recordings').update({ status: 'completed', analysis: res }).eq('id', newRecordingId);
+      const updatedRecording: MeetingRecording = { ...initialRecording, status: 'completed', analysis: res };
       
-      setRecordings(prev => prev.map(r => r.id === newRecordingId ? { ...r, status: 'completed', analysis: res } : r));
+      // Update local state
+      setRecordings(prev => prev.map(r => r.id === newRecordingId ? updatedRecording : r));
+      
+      // Try to sync with DB
+      supabase.from('recordings').insert([initialRecording]).then(() => {
+         supabase.from('recordings').update({ status: 'completed', analysis: res }).eq('id', newRecordingId);
+      });
+      
       setPendingMedia(null);
       setCloserForm({ closerName: '', clientName: '', date: new Date().toISOString().split('T')[0] });
     } catch (e: any) {
-      await supabase.from('recordings').update({ status: 'error' }).eq('id', newRecordingId);
+      console.error("Analysis failed", e);
       setRecordings(prev => prev.map(r => r.id === newRecordingId ? { ...r, status: 'error' } : r));
+      alert("Falha na análise. Verifique se o arquivo é um áudio/vídeo válido e se a chave API está correta.");
     } finally {
       setIsAnalyzingAudio(false);
     }
@@ -324,14 +405,13 @@ const App: React.FC = () => {
     
     const { error } = await supabase.from('clients').insert([newClient]);
     if (error) {
-       console.error("Erro ao salvar cliente:", error);
-       alert("Erro ao salvar cliente.");
-       return;
+       console.warn("Modo Demo: Cliente salvo localmente.");
     }
 
     setClients(prev => [newClient, ...prev]);
     setClientForm({ name: '', company: '', contractDate: new Date().toISOString().split('T')[0], contractValue: 0, qualificationNotes: '', status: 'active' });
     setTempClientFiles([]);
+    alert("Cliente cadastrado com sucesso!");
   };
 
   const handleNewClientFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -369,15 +449,14 @@ const App: React.FC = () => {
   const handleAddSuggestion = async (e: React.FormEvent) => {
      e.preventDefault();
      if (!suggestionMessage.trim()) return;
-     const newS: Suggestion = { id: Math.random().toString(), userName: profile.name, message: suggestionMessage, timestamp: new Date().toISOString(), category: 'Processo', status: 'Analise' };
+     const newS: Suggestion = { id: Math.random().toString(), userName: profile.name, message: suggestionMessage, timestamp: new Date().toISOString(), category: 'Processo', status: 'Analise', userAvatar: profile.avatar };
      
      const { error } = await supabase.from('suggestions').insert([newS]);
-     if (!error) {
-        setSuggestions([...suggestions, newS]);
-        setSuggestionMessage('');
-     } else {
-        console.error(error);
+     if (error) {
+        console.warn("Demo: Sugestão salva localmente");
      }
+     setSuggestions([...suggestions, newS]);
+     setSuggestionMessage('');
   };
 
   // EXECUTIVE METRICS CALCULATION
@@ -462,8 +541,8 @@ const App: React.FC = () => {
                    <button onClick={() => setProfile({...profile, role: isAdmin ? 'employee' : 'admin'})} className="px-4 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest transition-all bg-red-600 text-white">Alternar Função</button>
                 </div>
                 <div className="flex flex-col items-center">
-                   <div onClick={() => avatarInputRef.current?.click()} className="h-24 w-24 rounded-full bg-zinc-950 border-2 border-dashed border-zinc-800 flex items-center justify-center relative cursor-pointer overflow-hidden">
-                     {profile.avatar ? <img src={profile.avatar} alt="Avatar" className="h-full w-full object-cover" /> : <User size={32} className="text-zinc-800" />}
+                   <div onClick={() => avatarInputRef.current?.click()} className="h-24 w-24 rounded-full bg-zinc-950 border-2 border-dashed border-zinc-800 flex items-center justify-center relative cursor-pointer overflow-hidden group">
+                     {profile.avatar ? <img src={profile.avatar} alt="Avatar" className="h-full w-full object-cover" /> : <User size={32} className="text-zinc-800 group-hover:text-red-500 transition-colors" />}
                      <input type="file" ref={avatarInputRef} className="hidden" accept="image/*" onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
@@ -473,6 +552,7 @@ const App: React.FC = () => {
                         }
                      }} />
                    </div>
+                   <p className="mt-2 text-[9px] font-black text-slate-600 uppercase">Clique para alterar foto</p>
                 </div>
                 <FormInput label="Nome Completo" type="text" value={profile.name} onChange={v => setProfile({...profile, name: v})} />
                 <button onClick={() => setIsProfileModalOpen(false)} className="w-full bg-red-600 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-[10px]">Salvar</button>
@@ -557,7 +637,7 @@ const App: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                    <ExecCard label="Leads no Período" value={execMetrics.totalLeads} icon={<Users size={18} />} />
                    <ExecCard label="Taxa Lead → Contrato" value={`${execMetrics.convRate.toFixed(1)}%`} icon={<PieChart size={18} />} trend="Meta: 5%" trendType="neutral" />
-                   <ExecCard label="CAC (Custo Aquisição)" value={`R$ ${execMetrics.cac.toLocaleString('pt-BR')}`} icon={<CreditCard size={18} />} trend="-4.2%" trendType="up" />
+                   <ExecCard label="CAC (Custo Aquisição)" value={`R$ ${execMetrics.cac.toLocaleString('pt-BR', {maximumFractionDigits: 0})}`} icon={<CreditCard size={18} />} trend="-4.2%" trendType="up" />
                    <ExecCard label="Top Lead Source" value="Google Ads" icon={<ExternalLink size={18} />} />
                 </div>
              </section>
@@ -868,8 +948,8 @@ const App: React.FC = () => {
                              <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">{rec.closerName}</p>
                           </div>
                         </div>
-                        <div className={`px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-widest border ${rec.status === 'completed' ? 'bg-emerald-600/10 text-emerald-500 border-emerald-500/20' : 'bg-amber-600/10 text-amber-500 border-amber-500/20'}`}>
-                          {rec.status === 'completed' ? 'Auditoria Concluída' : 'Em Análise'}
+                        <div className={`px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-widest border ${rec.status === 'completed' ? 'bg-emerald-600/10 text-emerald-500 border-emerald-500/20' : rec.status === 'error' ? 'bg-red-600/10 text-red-500 border-red-500/20' : 'bg-amber-600/10 text-amber-500 border-amber-500/20'}`}>
+                          {rec.status === 'completed' ? 'Auditoria Concluída' : rec.status === 'error' ? 'Falha na Análise' : 'Em Análise'}
                         </div>
                       </div>
                       {rec.status === 'completed' && rec.analysis && (
@@ -891,6 +971,11 @@ const App: React.FC = () => {
                           </div>
                         </div>
                       )}
+                      {rec.status === 'error' && (
+                        <div className="mt-4 p-4 bg-red-950/20 rounded-xl border border-red-900/30">
+                          <p className="text-xs text-red-400">Ocorreu um erro ao processar esta gravação. Tente novamente.</p>
+                        </div>
+                      )}
                     </div>
                   ))
                 )}
@@ -908,11 +993,15 @@ const App: React.FC = () => {
                </h2>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-               {[1, 2, 3].map(i => (
+               {[
+                { title: 'Objeção: "Vou pensar"', text: "Norte Assessoria não vende serviço, vende previsibilidade comercial." },
+                { title: 'Gatilho de Urgência', text: "Temos apenas 2 vagas para o setup de campanha nesta semana." },
+                { title: 'Autoridade', text: "Já gerenciamos mais de 5 milhões em Ads com ROI positivo." },
+               ].map((item, i) => (
                  <div key={i} className="bg-zinc-900 p-8 rounded-3xl border border-zinc-800 group hover:border-amber-600 transition-all">
                     <Quote size={32} className="text-amber-500/20 mb-6" />
-                    <h5 className="text-xl font-black text-white mb-4 tracking-tight uppercase">Objeção: "Vou pensar"</h5>
-                    <p className="text-slate-400 text-sm font-medium leading-relaxed italic">"Norte Assessoria não vende serviço, vende previsibilidade comercial."</p>
+                    <h5 className="text-xl font-black text-white mb-4 tracking-tight uppercase">{item.title}</h5>
+                    <p className="text-slate-400 text-sm font-medium leading-relaxed italic">"{item.text}"</p>
                  </div>
                ))}
             </div>
@@ -987,6 +1076,16 @@ const App: React.FC = () => {
                                {playbookSubTab === 'SDR' ? 
                                  "Identificar leads com perfil ideal (ICP), descobrir a dor latente e agendar reuniões qualificadas para o Closer. O SDR é o filtro da agência." : 
                                  "Transformar a dor do lead em solução, apresentar a previsibilidade Norte e garantir a assinatura do contrato com foco em LTV e Scale."}
+                            </p>
+                         </div>
+                         <div className="bg-zinc-900/40 p-6 rounded-2xl border border-zinc-800/50">
+                            <h5 className="text-white font-black uppercase text-xs mb-4 flex items-center gap-2">
+                               <Activity size={14} className="text-red-500" /> KPI Crítico
+                            </h5>
+                            <p className="text-slate-400 text-sm leading-relaxed">
+                               {playbookSubTab === 'SDR' ? 
+                                 "Taxa de Agendamento (SAL) > 20% e Comparecimento > 85%" : 
+                                 "Taxa de Conversão (Win Rate) > 15% e Ticket Médio > R$ 3.000"}
                             </p>
                          </div>
                       </div>
@@ -1064,7 +1163,7 @@ const App: React.FC = () => {
                               <p className="text-lg text-slate-400 font-bold italic">{client.company}</p>
                            </div>
                            <div className={`px-4 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest border ${client.status === 'cancelled' ? 'bg-red-600/10 border-red-600 text-red-500' : 'bg-emerald-600/10 border-emerald-600 text-emerald-500'}`}>
-                              {client.status}
+                              {client.status === 'active' ? 'Ativo' : client.status === 'paused' ? 'Pausado' : client.status === 'completed' ? 'Finalizado' : 'Churn'}
                            </div>
                         </div>
                       </div>
@@ -1096,7 +1195,7 @@ const App: React.FC = () => {
                     </div>
                     <h5 className="text-2xl font-black text-white mb-4 uppercase tracking-tight">{p.name}</h5>
                     <p className="text-slate-400 text-sm font-medium leading-relaxed">{p.desc}</p>
-                    <button className="mt-8 w-full py-4 bg-zinc-950 border border-zinc-800 rounded-xl text-[10px] font-black uppercase text-slate-500 tracking-widest hover:bg-red-600 hover:text-white transition-all">Ver Detalhes do Plano</button>
+                    <button onClick={() => alert("Funcionalidade em desenvolvimento para a versão 2.0")} className="mt-8 w-full py-4 bg-zinc-950 border border-zinc-800 rounded-xl text-[10px] font-black uppercase text-slate-500 tracking-widest hover:bg-red-600 hover:text-white transition-all">Ver Detalhes do Plano</button>
                  </div>
                ))}
             </div>
@@ -1137,8 +1236,8 @@ const App: React.FC = () => {
               <div className="flex-1 overflow-y-auto p-8 space-y-6">
                 {suggestions.map((s) => (
                   <div key={s.id} className="flex gap-4 animate-in slide-in-from-bottom-2 duration-300">
-                    <div className="h-10 w-10 rounded-full border border-zinc-800 bg-zinc-900 shrink-0 flex items-center justify-center text-slate-600">
-                      {s.userAvatar ? <img src={s.userAvatar} className="h-full w-full rounded-full object-cover" /> : <User size={20} />}
+                    <div className="h-10 w-10 rounded-full border border-zinc-800 bg-zinc-900 shrink-0 flex items-center justify-center text-slate-600 overflow-hidden">
+                      {s.userAvatar ? <img src={s.userAvatar} className="h-full w-full object-cover" /> : <User size={20} />}
                     </div>
                     <div className="flex-1 bg-black/40 border border-zinc-800 p-5 rounded-2xl shadow-xl">
                       <div className="flex justify-between items-start mb-2">

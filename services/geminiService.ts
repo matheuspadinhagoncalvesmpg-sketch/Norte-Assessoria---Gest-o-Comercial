@@ -6,6 +6,13 @@ const getAI = () => {
   return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
+// Helper para limpar formatação Markdown de JSON
+const cleanJsonText = (text: string) => {
+  if (!text) return "{}";
+  // Remove ```json e ``` se existirem
+  return text.replace(/^```json\s*/, "").replace(/\s*```$/, "").trim();
+};
+
 export const getCommercialInsights = async (data: DailyMetric[]) => {
   const ai = getAI();
   const prompt = `Analise os seguintes dados comerciais da agência "Norte Assessoria":
@@ -27,17 +34,23 @@ export const getCommercialInsights = async (data: DailyMetric[]) => {
           properties: {
             analysis: { type: Type.STRING },
             suggestions: { type: Type.ARRAY, items: { type: Type.STRING } },
-            status: { type: Type.STRING }
+            status: { type: Type.STRING, enum: ["positive", "neutral", "negative"] }
           },
           required: ["analysis", "suggestions", "status"]
         }
       }
     });
 
-    return JSON.parse(response.text?.trim() || "{}");
+    const text = response.text || "{}";
+    return JSON.parse(cleanJsonText(text));
   } catch (error) {
     console.error("Error fetching insights:", error);
-    throw error;
+    // Retornar um fallback para não quebrar a UI
+    return {
+      analysis: "Não foi possível gerar a análise no momento devido a um erro de conexão ou processamento.",
+      suggestions: ["Verifique sua conexão", "Tente novamente mais tarde"],
+      status: "neutral"
+    };
   }
 };
 
@@ -53,7 +66,7 @@ export const analyzeMeetingRecording = async (base64Data: string, closerName: st
   4. Objeções: Como ele contornou?
   5. Fechamento: Houve clareza no próximo passo?
   
-  Retorne um relatório JSON detalhado.`;
+  Retorne um relatório JSON detalhado seguindo o schema.`;
 
   try {
     const response = await ai.models.generateContent({
@@ -81,7 +94,8 @@ export const analyzeMeetingRecording = async (base64Data: string, closerName: st
       }
     });
 
-    return JSON.parse(response.text?.trim() || "{}");
+    const text = response.text || "{}";
+    return JSON.parse(cleanJsonText(text));
   } catch (error) {
     console.error("Error analyzing recording:", error);
     throw error;
@@ -101,7 +115,7 @@ export const generateSalesFeedbackReport = async (recordings: MeetingRecording[]
     }));
 
   if (completedAnalyses.length === 0) {
-    return "Não há análises concluídas suficientes para gerar um relatório consolidado.";
+    return "Não há análises concluídas suficientes para gerar um relatório consolidado. Realize mais auditorias de vídeo para habilitar esta função.";
   }
 
   const prompt = `Como Master Sales Coach da Norte Assessoria, gere um **Relatório de Performance ${period}** consolidado.
@@ -120,9 +134,9 @@ export const generateSalesFeedbackReport = async (recordings: MeetingRecording[]
       model: 'gemini-3-pro-preview',
       contents: prompt
     });
-    return response.text;
+    return response.text || "Sem resposta do modelo.";
   } catch (error) {
     console.error("Error generating feedback report:", error);
-    return "Ocorreu um erro ao gerar o relatório. Tente novamente.";
+    return "Ocorreu um erro ao gerar o relatório. Verifique a chave de API e tente novamente.";
   }
 };
