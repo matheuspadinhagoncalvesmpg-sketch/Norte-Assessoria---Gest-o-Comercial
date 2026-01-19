@@ -7,76 +7,77 @@ import {
   Users, 
   Target, 
   Briefcase, 
-  DollarSign,
+  DollarSign, 
   BrainCircuit, 
-  Trash2,
-  Calendar,
-  Mic,
-  FileAudio,
-  FileVideo,
-  UserCheck,
-  ChevronRight,
-  Loader2,
-  Trophy,
-  AlertCircle,
-  Upload,
-  CheckCircle2,
-  XCircle,
-  Video,
-  Play,
-  FileUp,
-  Search,
-  UserPlus,
-  Info,
-  ArrowLeft,
-  Key,
-  Star,
-  Bookmark,
-  Sparkles,
-  Quote,
-  Zap,
-  User,
-  Settings,
-  LogOut,
-  Mail,
-  Phone,
-  Camera,
-  X,
-  BookOpen,
-  FileText,
-  MessageSquare,
-  Paperclip,
-  Download,
-  Lightbulb,
-  Send,
-  Filter,
-  CreditCard,
-  Package,
-  File,
-  Image as ImageIcon,
-  ShieldCheck,
-  Lock,
-  ExternalLink,
-  Bot,
-  MessageCircleQuestion,
-  Sparkle,
-  Sword,
-  Wand2,
-  Headset,
-  Handshake,
-  CalendarDays,
-  CalendarRange,
-  LineChart,
-  ArrowUpRight,
-  ArrowDownRight,
-  Activity,
-  BarChart3,
-  PieChart,
-  Layers
+  Trash2, 
+  Calendar, 
+  Mic, 
+  FileAudio, 
+  FileVideo, 
+  UserCheck, 
+  ChevronRight, 
+  Loader2, 
+  Trophy, 
+  AlertCircle, 
+  Upload, 
+  CheckCircle2, 
+  XCircle, 
+  Video, 
+  Play, 
+  FileUp, 
+  Search, 
+  UserPlus, 
+  Info, 
+  ArrowLeft, 
+  Key, 
+  Star, 
+  Bookmark, 
+  Sparkles, 
+  Quote, 
+  Zap, 
+  User, 
+  Settings, 
+  LogOut, 
+  Mail, 
+  Phone, 
+  Camera, 
+  X, 
+  BookOpen, 
+  FileText, 
+  MessageSquare, 
+  Paperclip, 
+  Download, 
+  Lightbulb, 
+  Send, 
+  Filter, 
+  CreditCard, 
+  Package, 
+  File, 
+  Image as ImageIcon, 
+  ShieldCheck, 
+  Lock, 
+  ExternalLink, 
+  Bot, 
+  MessageCircleQuestion, 
+  Sparkle, 
+  Sword, 
+  Wand2, 
+  Headset, 
+  Handshake, 
+  CalendarDays, 
+  CalendarRange, 
+  LineChart, 
+  ArrowUpRight, 
+  ArrowDownRight, 
+  Activity, 
+  BarChart3, 
+  PieChart, 
+  Layers 
 } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { DailyMetric, CommercialInsight, MeetingRecording, CloserPerformance, Client, GoldenMoment, UserProfile, PlaybookEntry, Suggestion, NortePlan, ClientAttachment } from './types';
 import { getCommercialInsights, analyzeMeetingRecording, generateSalesFeedbackReport } from './services/geminiService';
+import { supabase } from './services/supabaseClient';
 
 const App: React.FC = () => {
   const [metrics, setMetrics] = useState<DailyMetric[]>([]);
@@ -137,36 +138,37 @@ const App: React.FC = () => {
     date: new Date().toISOString().split('T')[0]
   });
 
+  // Load Data from Supabase
   useEffect(() => {
-    const savedMetrics = localStorage.getItem('norte_metrics');
-    const savedRecordings = localStorage.getItem('norte_recordings');
-    const savedClients = localStorage.getItem('norte_clients');
-    const savedMoments = localStorage.getItem('norte_moments');
-    const savedProfile = localStorage.getItem('norte_profile');
-    const savedPlaybooks = localStorage.getItem('norte_playbooks');
-    const savedSuggestions = localStorage.getItem('norte_suggestions');
-    const savedPlans = localStorage.getItem('norte_plans');
-    
-    if (savedMetrics) setMetrics(JSON.parse(savedMetrics));
-    if (savedRecordings) setRecordings(JSON.parse(savedRecordings));
-    if (savedClients) setClients(JSON.parse(savedClients));
-    if (savedMoments) setGoldenMoments(JSON.parse(savedMoments));
-    if (savedProfile) setProfile(JSON.parse(savedProfile));
-    if (savedPlaybooks) setPlaybooks(JSON.parse(savedPlaybooks));
-    if (savedSuggestions) setSuggestions(JSON.parse(savedSuggestions));
-    if (savedPlans) setNortePlans(JSON.parse(savedPlans));
+    const loadData = async () => {
+      try {
+        const { data: metricsData } = await supabase.from('metrics').select('*');
+        if (metricsData) setMetrics(metricsData);
+
+        const { data: recordingsData } = await supabase.from('recordings').select('*');
+        if (recordingsData) setRecordings(recordingsData);
+
+        const { data: clientsData } = await supabase.from('clients').select('*');
+        if (clientsData) setClients(clientsData);
+
+        const { data: suggestionsData } = await supabase.from('suggestions').select('*');
+        if (suggestionsData) setSuggestions(suggestionsData);
+        
+        // Load local preferences/static data
+        const savedProfile = localStorage.getItem('norte_profile');
+        if (savedProfile) setProfile(JSON.parse(savedProfile));
+
+      } catch (error) {
+        console.error("Erro ao carregar dados do Supabase:", error);
+      }
+    };
+    loadData();
   }, []);
 
+  // Save Profile to LocalStorage (Simulation of Session)
   useEffect(() => {
-    localStorage.setItem('norte_metrics', JSON.stringify(metrics));
-    localStorage.setItem('norte_recordings', JSON.stringify(recordings));
-    localStorage.setItem('norte_clients', JSON.stringify(clients));
-    localStorage.setItem('norte_moments', JSON.stringify(goldenMoments));
     localStorage.setItem('norte_profile', JSON.stringify(profile));
-    localStorage.setItem('norte_playbooks', JSON.stringify(playbooks));
-    localStorage.setItem('norte_suggestions', JSON.stringify(suggestions));
-    localStorage.setItem('norte_plans', JSON.stringify(nortePlans));
-  }, [metrics, recordings, clients, goldenMoments, profile, playbooks, suggestions, nortePlans]);
+  }, [profile]);
 
   useEffect(() => {
     aiChatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -181,7 +183,10 @@ const App: React.FC = () => {
     setAiChatMessages(prev => [...prev, { role: 'user', text: userInput }]);
     setIsAiThinking(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const apiKey = process.env.API_KEY;
+      if (!apiKey) throw new Error("API Key missing");
+
+      const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: userInput,
@@ -226,13 +231,32 @@ const App: React.FC = () => {
     }
   };
 
-  const handleAddMetric = (e: React.FormEvent) => {
+  const handleAddMetric = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAdmin) return;
     const newMetric: DailyMetric = { ...formData, id: Math.random().toString(36).substr(2, 9) };
+    
+    const { error } = await supabase.from('metrics').insert([newMetric]);
+    
+    if (error) {
+      console.error("Erro ao salvar métrica:", error);
+      alert("Erro ao salvar no banco de dados.");
+      return;
+    }
+
     setMetrics(prev => [...prev, newMetric].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
     setFormData({ date: new Date().toISOString().split('T')[0], leads: 0, qualifications: 0, meetings: 0, sales: 0, value: 0, adsInvestment: 0, observations: '' });
     setActiveTab('history');
+  };
+
+  const handleDeleteMetric = async (id: string) => {
+     const { error } = await supabase.from('metrics').delete().eq('id', id);
+     if (error) {
+       console.error("Erro ao deletar:", error);
+       alert("Erro ao deletar.");
+     } else {
+       setMetrics(metrics.filter(item => item.id !== id));
+     }
   };
 
   const [formData, setFormData] = useState<Omit<DailyMetric, 'id'>>({
@@ -264,29 +288,47 @@ const App: React.FC = () => {
     if (!pendingMedia || !closerForm.closerName) return;
     setIsAnalyzingAudio(true);
     const newRecordingId = Math.random().toString(36).substr(2, 9);
+    
+    const initialRecording: MeetingRecording = {
+      id: newRecordingId,
+      date: closerForm.date,
+      closerName: closerForm.closerName,
+      clientName: closerForm.clientName,
+      status: 'analyzing'
+    };
+
+    // Save initial state to DB
+    await supabase.from('recordings').insert([initialRecording]);
+    setRecordings(prev => [initialRecording, ...prev]);
+
     try {
-      const initialRecording: MeetingRecording = {
-        id: newRecordingId,
-        date: closerForm.date,
-        closerName: closerForm.closerName,
-        clientName: closerForm.clientName,
-        status: 'analyzing'
-      };
-      setRecordings(prev => [initialRecording, ...prev]);
       const res = await analyzeMeetingRecording(pendingMedia.base64, closerForm.closerName, pendingMedia.mimeType);
+      
+      // Update DB with analysis
+      await supabase.from('recordings').update({ status: 'completed', analysis: res }).eq('id', newRecordingId);
+      
       setRecordings(prev => prev.map(r => r.id === newRecordingId ? { ...r, status: 'completed', analysis: res } : r));
       setPendingMedia(null);
       setCloserForm({ closerName: '', clientName: '', date: new Date().toISOString().split('T')[0] });
     } catch (e: any) {
+      await supabase.from('recordings').update({ status: 'error' }).eq('id', newRecordingId);
       setRecordings(prev => prev.map(r => r.id === newRecordingId ? { ...r, status: 'error' } : r));
     } finally {
       setIsAnalyzingAudio(false);
     }
   };
 
-  const handleAddClient = (e: React.FormEvent) => {
+  const handleAddClient = async (e: React.FormEvent) => {
     e.preventDefault();
     const newClient: Client = { ...clientForm, id: Math.random().toString(36).substr(2, 9), files: tempClientFiles };
+    
+    const { error } = await supabase.from('clients').insert([newClient]);
+    if (error) {
+       console.error("Erro ao salvar cliente:", error);
+       alert("Erro ao salvar cliente.");
+       return;
+    }
+
     setClients(prev => [newClient, ...prev]);
     setClientForm({ name: '', company: '', contractDate: new Date().toISOString().split('T')[0], contractValue: 0, qualificationNotes: '', status: 'active' });
     setTempClientFiles([]);
@@ -323,6 +365,20 @@ const App: React.FC = () => {
   });
 
   const [suggestionMessage, setSuggestionMessage] = useState('');
+
+  const handleAddSuggestion = async (e: React.FormEvent) => {
+     e.preventDefault();
+     if (!suggestionMessage.trim()) return;
+     const newS: Suggestion = { id: Math.random().toString(), userName: profile.name, message: suggestionMessage, timestamp: new Date().toISOString(), category: 'Processo', status: 'Analise' };
+     
+     const { error } = await supabase.from('suggestions').insert([newS]);
+     if (!error) {
+        setSuggestions([...suggestions, newS]);
+        setSuggestionMessage('');
+     } else {
+        console.error(error);
+     }
+  };
 
   // EXECUTIVE METRICS CALCULATION
   const execMetrics = useMemo(() => {
@@ -681,7 +737,7 @@ const App: React.FC = () => {
                       </div>
                     </div>
                     {isAdmin && (
-                      <button onClick={() => setMetrics(metrics.filter(item => item.id !== m.id))} className="p-3 bg-zinc-800 text-slate-500 rounded-xl hover:bg-red-600 hover:text-white transition-all">
+                      <button onClick={() => handleDeleteMetric(m.id)} className="p-3 bg-zinc-800 text-slate-500 rounded-xl hover:bg-red-600 hover:text-white transition-all">
                         <Trash2 size={18} />
                       </button>
                     )}
@@ -1095,13 +1151,7 @@ const App: React.FC = () => {
                 ))}
                 <div ref={chatEndRef} />
               </div>
-              <form onSubmit={(e) => {
-                 e.preventDefault();
-                 if (!suggestionMessage.trim()) return;
-                 const newS: Suggestion = { id: Math.random().toString(), userName: profile.name, message: suggestionMessage, timestamp: new Date().toISOString(), category: 'Processo', status: 'Analise' };
-                 setSuggestions([...suggestions, newS]);
-                 setSuggestionMessage('');
-              }} className="p-6 bg-zinc-950/80 border-t border-zinc-800 flex gap-4">
+              <form onSubmit={handleAddSuggestion} className="p-6 bg-zinc-950/80 border-t border-zinc-800 flex gap-4">
                  <input type="text" value={suggestionMessage} onChange={e => setSuggestionMessage(e.target.value)} placeholder="O que podemos melhorar no processo?" className="flex-1 bg-black border border-zinc-800 rounded-2xl px-6 py-4 text-sm font-bold text-white outline-none" />
                  <button type="submit" className="h-14 w-14 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl flex items-center justify-center"><Send size={24} /></button>
               </form>
